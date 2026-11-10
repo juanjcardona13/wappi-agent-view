@@ -1,8 +1,22 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { swapsById } from '../content/swaps';
 import { renderPlan } from '../vendor/isoplan/core';
 import { graph } from './diagram';
+import {
+  DESKTOP_CANVAS,
+  LABEL_FONT_DESKTOP,
+  LABEL_FONT_MOBILE,
+  activeLabelIds,
+  formatViewBox,
+  frameView,
+  inkOn,
+  parseViewBox,
+  placeLabels,
+  project,
+  type Point,
+  type ViewBox,
+} from './labels';
 import { scenarioById, scenarios, stepsFor, variantOf } from './scenarios';
 import { useExplorer, type Speed } from './store';
 import type { ExplorerStep, SceneEvent, ScenarioId } from './types';
@@ -66,8 +80,26 @@ export function Explorer() {
   const insideBox = useExplorer((state) => state.insideBox);
   const provider = useExplorer((state) => state.provider);
   const plan = useMemo(() => renderPlan(graph, { flows: false }), []);
+  const fullView = useMemo(() => parseViewBox(plan.viewBox), [plan]);
   const svgRef = useRef<SVGSVGElement>(null);
-  const packetRef = useRef<SVGGElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const packetChipRef = useRef<HTMLSpanElement>(null);
+  const packetPoint = useRef<Point | null>(null);
+  const cameraRef = useRef<ViewBox>(fullView);
+  const compactRef = useRef(false);
+  const [camera, setCamera] = useState<ViewBox>(fullView);
+  const [focus, setFocus] = useState<'follow' | 'all'>('follow');
+  const [compact, setCompact] = useState(false);
+  const [stageSize, setStageSize] = useState(DESKTOP_CANVAS);
+  const [tip, setTip] = useState<string | null>(null);
+  const [seenStep, setSeenStep] = useState(stepIndex);
+  if (seenStep !== stepIndex) {
+    setSeenStep(stepIndex);
+    setFocus('follow');
+    setTip(null);
+  }
+  cameraRef.current = camera;
+  compactRef.current = compact;
   const step = stepIndex >= 0 ? steps[Math.min(stepIndex, steps.length - 1)] : undefined;
   const activeId = selectedNode || step?.nodeId || def.start.nodes[0];
   const live = step ? `Paso ${stepIndex + 1} de ${steps.length}: ${step.title}. ${step.desc}` : def.overview.description;
@@ -140,8 +172,6 @@ export function Explorer() {
     root.querySelectorAll('.iso-piece').forEach((node) => {
       node.classList.toggle('is-on', node.getAttribute('data-id') === activeId);
     });
-    root.querySelectorAll('.iso-label').forEach((node) => root.appendChild(node));
-    root.setAttribute('viewBox', plan.viewBox);
     const hot = [...(step?.events ?? [])].find((event) => event.type === 'packet');
     root.querySelectorAll('.iso-track').forEach((path) => {
       const edge = path.getAttribute('data-edge');
@@ -151,10 +181,9 @@ export function Explorer() {
   }, [activeId, plan, step]);
 
   useEffect(() => {
-    const node = packetRef.current;
-    if (!node) return;
     if (stepIndex < 0) {
-      node.setAttribute('opacity', '0');
+      packetPoint.current = null;
+      if (packetChipRef.current) packetChipRef.current.style.opacity = '0';
       return;
     }
     const packetEvent = [...(step?.events ?? [])].reverse().find((event) => event.type === 'packet');
@@ -162,18 +191,28 @@ export function Explorer() {
     const path = packetEvent && packetEvent.type === 'packet'
       ? svgRef.current?.querySelector(`path[data-edge="${CSS.escape(packetEvent.edge)}"]`)
       : null;
-    node.setAttribute('opacity', '1');
-    const park = (x: number, y: number) => node.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+    const park = (x: number, y: number) => {
+      packetPoint.current = { x, y };
+      const chip = packetChipRef.current;
+      const stage = stageRef.current;
+      if (!chip || !stage) return;
+      const rect = stage.getBoundingClientRect();
+      if (rect.width < 20) return;
+      const screen = project({ x, y }, cameraRef.current, { width: rect.width, height: rect.height });
+      chip.style.left = `${screen.x}px`;
+      chip.style.top = `${screen.y}px`;
+      chip.style.opacity = '1';
+    };
     const drawable = path && 'getTotalLength' in path ? (path as SVGPathElement) : null;
     if (!drawable) {
-      if (anchor) park(anchor.x, anchor.y + 26);
+      if (anchor) park(anchor.x, anchor.y);
       return;
     }
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const total = drawable.getTotalLength();
     const paint = (t: number) => {
       const point = drawable.getPointAtLength(total * t);
-      park(point.x, point.y + 26);
+      park(point.x, point.y);
     };
     if (reduced) {
       paint(0.72);
@@ -189,6 +228,112 @@ export function Explorer() {
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [step, stepIndex, activeId, plan, speed]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const apply = () => setCompact(media.matches);
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, []);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || typeof ResizeObserver === 'undefined') return;
+    const measure = () => {
+      const rect = stage.getBoundingClientRect();
+      if (rect.width < 20 || rect.height < 20) return;
+      setStageSize({ width: rect.width, height: rect.height });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [view, diagramOnly]);
+
+  useEffect(() => {
+    const packet = packetsOf(step).at(-1);
+    const ids = step && focus === 'follow'
+      ? [...new Set([packet?.from, packet?.to, step.nodeId].filter((id): id is string => Boolean(id)))]
+      : [];
+    const points = ids.map((id) => plan.anchors[id]).filter((point): point is Point => Boolean(point));
+    const target = points.length ? frameView(points, fullView) : fullView;
+    const from = cameraRef.current;
+    const same = Math.abs(from.x - target.x) < 0.5 && Math.abs(from.y - target.y) < 0.5 && Math.abs(from.w - target.w) < 0.5 && Math.abs(from.h - target.h) < 0.5;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (same) return;
+    if (reduced) {
+      setCamera(target);
+      return;
+    }
+    const started = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - started) / 420);
+      const eased = 1 - (1 - t) ** 3;
+      setCamera({
+        x: from.x + (target.x - from.x) * eased,
+        y: from.y + (target.y - from.y) * eased,
+        w: from.w + (target.w - from.w) * eased,
+        h: from.h + (target.h - from.h) * eased,
+      });
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [step, focus, fullView, plan]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const pointers = new Map<number, { x: number; y: number }>();
+    let origin: { px: number; py: number; view: ViewBox } | null = null;
+    let pinch: { dist: number; view: ViewBox } | null = null;
+    const down = (event: PointerEvent) => {
+      if (!compactRef.current) return;
+      if ((event.target as Element).closest('button, a, input')) return;
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      stage.setPointerCapture(event.pointerId);
+      origin = { px: event.clientX, py: event.clientY, view: cameraRef.current };
+      pinch = null;
+    };
+    const move = (event: PointerEvent) => {
+      if (!pointers.has(event.pointerId)) return;
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      const rect = stage.getBoundingClientRect();
+      if (pointers.size >= 2) {
+        const [first, second] = [...pointers.values()];
+        const dist = Math.hypot(first.x - second.x, first.y - second.y) || 1;
+        if (!pinch) pinch = { dist, view: cameraRef.current };
+        const ratio = pinch.dist / dist;
+        const view = pinch.view;
+        const w = Math.min(fullView.w, Math.max(fullView.w / 3.2, view.w * ratio));
+        const h = w * (fullView.h / fullView.w);
+        setCamera({ x: view.x + view.w / 2 - w / 2, y: view.y + view.h / 2 - h / 2, w, h });
+        return;
+      }
+      if (!origin || rect.width < 20) return;
+      const scale = Math.min(rect.width / origin.view.w, rect.height / origin.view.h) || 1;
+      const dx = (event.clientX - origin.px) / scale;
+      const dy = (event.clientY - origin.py) / scale;
+      setCamera({ ...origin.view, x: origin.view.x - dx, y: origin.view.y - dy });
+    };
+    const up = (event: PointerEvent) => {
+      pointers.delete(event.pointerId);
+      if (pointers.size < 2) pinch = null;
+      if (!pointers.size) origin = null;
+    };
+    stage.addEventListener('pointerdown', down);
+    stage.addEventListener('pointermove', move);
+    stage.addEventListener('pointerup', up);
+    stage.addEventListener('pointercancel', up);
+    return () => {
+      stage.removeEventListener('pointerdown', down);
+      stage.removeEventListener('pointermove', move);
+      stage.removeEventListener('pointerup', up);
+      stage.removeEventListener('pointercancel', up);
+    };
+  }, [fullView, view]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -238,6 +383,20 @@ export function Explorer() {
   const shownPackets = steps.slice(0, Math.max(0, stepIndex + 1)).flatMap(packetsOf);
   const currentPacket = packetsOf(step).at(-1);
   const done = stepIndex >= steps.length - 1 && !playing && stepIndex >= 0;
+  const font = compact ? LABEL_FONT_MOBILE : LABEL_FONT_DESKTOP;
+  const activeIds = activeLabelIds(step?.nodeId, currentPacket?.from, currentPacket?.to);
+  const labelItems = plan.pieces
+    .filter((piece) => !compact || activeIds.includes(piece.id))
+    .map((piece) => ({ id: piece.id, label: piece.label, at: plan.anchors[piece.id] }));
+  if (compact) {
+    for (const area of plan.areas) {
+      const at = plan.areaAnchors[area.id];
+      if (area.name && at) labelItems.push({ id: `zone-${area.id}`, label: area.name, at });
+    }
+  }
+  const boxes = placeLabels(labelItems, formatViewBox(camera), stageSize, font);
+  const labelById = new Map(labelItems.map((item) => [item.id, item.label]));
+  const notes = (step?.events.filter((event) => event.type === 'note') ?? []) as Extract<SceneEvent, { type: 'note' }>[];
 
   return (
     <div className={`explorer ${listOpen ? '' : 'is-list-off'} ${diagramOnly ? 'is-diagram' : ''}`} data-budget="all">
@@ -271,23 +430,53 @@ export function Explorer() {
             <button type="button" className="menu-button" aria-label="Escenarios" onClick={() => useExplorer.getState().toggleList()}>☰</button>
             <button type="button" aria-pressed={view === 'red'} onClick={() => useExplorer.getState().toggleView()}>{view === 'red' ? 'Red' : 'Secuencia'}</button>
             <button type="button" aria-pressed={diagramOnly} onClick={() => useExplorer.getState().toggleDiagram()}>Solo</button>
+            <button type="button" aria-pressed={focus === 'all' || stepIndex < 0} onClick={() => setFocus('all')}>Ver todo</button>
           </div>
           {view === 'red' ? (
-            <div className={`isoplan diagram ${stepIndex >= 0 ? 'is-playing' : ''}`}>
+            <div ref={stageRef} className={`isoplan diagram ${stepIndex >= 0 ? 'is-playing' : ''}`}>
               <div className="iso-scene">
-                <svg ref={svgRef} className="diagram-svg" role="img" aria-label="Diagrama de Wappi" viewBox={plan.viewBox}>
+                <svg ref={svgRef} className="diagram-svg" role="img" aria-label="Diagrama de Wappi" viewBox={formatViewBox(camera)}>
                   <g dangerouslySetInnerHTML={{ __html: plan.svg }} />
-                  <g ref={packetRef} className="packet" opacity="0">
-                    <rect className="packet-chip" x="-68" y="-20" width="136" height="40" rx="14" fill={currentPacket?.color ?? '#1f9d6a'} />
-                    <text className="packet-label" textAnchor="middle" y="5">{packetFace[currentPacket?.kind ?? 'text']}</text>
-                  </g>
-                  {step?.events.filter((event) => event.type === 'note').map((event) => {
-                    if (event.type !== 'note') return null;
-                    const anchor = plan.anchors[event.at];
-                    if (!anchor) return null;
-                    return <text key={event.text} className={`note note-${event.tone}`} x={anchor.x} y={anchor.y - 28} textAnchor="middle">{event.text}</text>;
+                </svg>
+              </div>
+              <div className="label-layer">
+                <svg className="label-stems" aria-hidden="true">
+                  {boxes.map((box) => {
+                    const cx = box.x + box.w / 2;
+                    const cy = box.y + box.h;
+                    if (Math.hypot(cx - box.ax, cy - box.ay) < 22) return null;
+                    return <line key={box.id} x1={box.ax} y1={box.ay} x2={cx} y2={box.y + box.h} />;
                   })}
                 </svg>
+                {boxes.map((box) => (
+                  <span key={box.id} className="node-chip" data-id={box.id} style={{ left: box.x, top: box.y, width: box.w, height: box.h, fontSize: box.font }}>
+                    {labelById.get(box.id)}
+                  </span>
+                ))}
+                {compact ? plan.pieces.filter((piece) => !activeIds.includes(piece.id)).map((piece) => {
+                  const point = project(plan.anchors[piece.id], camera, stageSize);
+                  return (
+                    <button key={piece.id} type="button" className="node-dot" style={{ left: point.x, top: point.y }} aria-label={piece.label} onClick={() => setTip(piece.id)} />
+                  );
+                }) : null}
+                {tip && plan.anchors[tip] ? (
+                  <span className="node-chip is-tip" style={{ left: project(plan.anchors[tip], camera, stageSize).x, top: project(plan.anchors[tip], camera, stageSize).y - 28, fontSize: font }}>
+                    {plan.pieces.find((piece) => piece.id === tip)?.label}
+                  </span>
+                ) : null}
+                {notes.map((note) => {
+                  const anchor = plan.anchors[note.at];
+                  if (!anchor) return null;
+                  const point = project(anchor, camera, stageSize);
+                  return <span key={note.text} className={`node-chip note-chip note-${note.tone}`} style={{ left: point.x, top: point.y + 14, fontSize: font }}>{note.text}</span>;
+                })}
+                <span
+                  ref={packetChipRef}
+                  className="packet-face"
+                  style={{ opacity: stepIndex >= 0 && currentPacket ? 1 : 0, background: inkOn(currentPacket?.color ?? '#1f9d6a'), fontSize: font }}
+                >
+                  {currentPacket ? packetFace[currentPacket.kind] : ''}
+                </span>
               </div>
             </div>
           ) : (

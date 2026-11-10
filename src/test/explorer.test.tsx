@@ -10,6 +10,19 @@ import { graph } from '../explorer/diagram';
 import { scenarioById, scenarios, stepsFor, variantOf } from '../explorer/scenarios';
 import { useExplorer } from '../explorer/store';
 import { wordCount } from '../explorer/words';
+import {
+  DESKTOP_CANVAS,
+  LABEL_FONT_DESKTOP,
+  LABEL_INK,
+  LABEL_PAPER,
+  LEGEND_DARK,
+  LEGEND_LIGHT,
+  boxesOverlap,
+  contrast,
+  inkOn,
+  placeLabels,
+} from '../explorer/labels';
+import { kindColor } from '../explorer/fromJourney';
 
 function stageProblem(stages: string[]): string | null {
   const rank: Record<string, number> = {
@@ -78,6 +91,27 @@ describe('escenarios', () => {
     expect(plan.tracks.length).toBe(wires.length);
     expect(plan.pieces.map((piece) => piece.id).sort()).toEqual([...diagramNodeIds].sort());
     expect(plan.viewBox).toMatch(/^[-\d.]+ [-\d.]+ [-\d.]+ [-\d.]+$/);
+  });
+
+  it('keeps desktop labels at least 13px and clear of each other', () => {
+    const plan = renderPlan(graph, { flows: false });
+    const boxes = placeLabels(
+      plan.pieces.map((piece) => ({ id: piece.id, label: piece.label, at: plan.anchors[piece.id] })),
+      plan.viewBox,
+      DESKTOP_CANVAS,
+      LABEL_FONT_DESKTOP,
+    );
+    expect(boxes).toHaveLength(plan.pieces.length);
+    for (const box of boxes) expect(box.font).toBeGreaterThanOrEqual(13);
+    for (let i = 0; i < boxes.length; i += 1) {
+      for (let j = i + 1; j < boxes.length; j += 1) {
+        expect(boxesOverlap(boxes[i], boxes[j]), `${boxes[i].id} ${boxes[j].id}`).toBe(false);
+      }
+    }
+    expect(contrast(LABEL_INK, LABEL_PAPER)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(LEGEND_LIGHT.fg, LEGEND_LIGHT.bg)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(LEGEND_DARK.fg, LEGEND_DARK.bg)).toBeGreaterThanOrEqual(4.5);
+    for (const fill of Object.values(kindColor)) expect(contrast('#ffffff', inkOn(fill))).toBeGreaterThanOrEqual(4.5);
   });
 });
 

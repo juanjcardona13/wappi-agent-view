@@ -138,6 +138,8 @@ export interface Plan {
     anchors: Record<string, { x: number; y: number }>;
     /** Floor tracks. Wappi View moves packets along `d`. */
     tracks: Track[];
+    /** Center of each top-level plate, in the same space as `anchors`. */
+    areaAnchors: Record<string, { x: number; y: number }>;
 }
 
 export const DEFAULT_LABELS: AreaLabels = {
@@ -174,7 +176,7 @@ const S = 46;
 const STEP = 2.4;
 const MIN_SLOTS = 4;
 const SUBROW = 2.2;
-const GAP = 2.2;
+const GAP = 1.45;
 const PAD = 0.95;
 // Extra floor on the left of each band, so the next band's pieces never sit under the band name.
 const LEFT = 1.3;
@@ -586,39 +588,34 @@ export function renderPlan(graph: Graph, options: RenderOptions = {}): Plan {
     );
     const num: Record<string, number> = Object.fromEntries(numbered.map((n, i) => [n.id, i + 1]));
 
-    const height: Record<string, number> = {};
     const anchors: Record<string, { x: number; y: number }> = {};
     const extremes: Pt[] = [];
+    const pieceScale = 1.5;
     for (const n of order) {
         const [x, y] = pos(n);
         const [g, h] = shape(n.kind, x, y);
-        height[n.id] = h;
+        const base = P(x, y, 0);
         const top = P(x, y, h);
-        anchors[n.id] = { x: top[0], y: top[1] };
+        const ax = base[0] + pieceScale * (top[0] - base[0]);
+        const ay = base[1] + pieceScale * (top[1] - base[1]);
+        anchors[n.id] = { x: ax, y: ay };
+        extremes.push([ax, ay], base);
         const ext = SHADED_KINDS.has(n.kind) ? ' iso-ext' : '';
-        o += `<g class="iso-piece${ext}" data-id="${escapeXml(n.id)}" data-kind="${escapeXml(n.kind)}" tabindex="0" role="button" aria-label="${escapeXml(n.label)}">${g}</g>`;
+        o += `<g class="iso-piece${ext}" data-id="${escapeXml(n.id)}" data-kind="${escapeXml(n.kind)}" tabindex="0" role="button" aria-label="${escapeXml(n.label)}" transform="translate(${f(base[0])} ${f(base[1])}) scale(${pieceScale}) translate(${f(-base[0])} ${f(-base[1])})">${g}</g>`;
     }
 
-    let names = '';
-    // Area names sit outside the slab: left of the main bands, right of the side column.
+    const areaAnchors: Record<string, { x: number; y: number }> = {};
     for (const A of areas) {
+        const corners = [P(A.x0, A.y0), P(A.x1, A.y0), P(A.x1, A.y1), P(A.x0, A.y1)];
         for (const c of [P(A.x0, A.y0), P(A.x1, A.y0), P(A.x1, A.y1, SLAB_DEPTH), P(A.x0, A.y1, SLAB_DEPTH)]) extremes.push(c);
-        if (!A.name) continue;
-        // Zone names live in the page key. Drawn here they land on the next plate.
+        areaAnchors[A.id] = {
+            x: corners.reduce((sum, point) => sum + point[0], 0) / 4,
+            y: corners.reduce((sum, point) => sum + point[1], 0) / 4,
+        };
     }
-    let tags = '';
-    for (const n of order) {
-        const [x, y] = pos(n);
-        const [lx, ly] = P(x, y, height[n.id]);
-        const width = n.label.length * 7.2 + 8;
-        const dy = n.row % 2 === 0 ? -12 : 18;
-        extremes.push([lx - width / 2, ly + dy - 14], [lx + width / 2, ly + dy]);
-        tags += `<text class="iso-label" data-id="${escapeXml(n.id)}" x="${f(lx)}" y="${f(ly + dy)}" text-anchor="middle">${escapeXml(n.label)}</text>`;
-    }
-    o += names + tags;
 
     const xs = extremes.map((p) => p[0]), ys = extremes.map((p) => p[1]);
-    const m = 24;
+    const m = 10;
     const vx = Math.min(...xs) - m, vy = Math.min(...ys) - m;
     const viewBox = `${f(vx)} ${f(vy)} ${f(Math.max(...xs) - vx + m)} ${f(Math.max(...ys) - vy + m)}`;
 
@@ -630,5 +627,6 @@ export function renderPlan(graph: Graph, options: RenderOptions = {}): Plan {
         areas: areaOrder.map((A) => ({ id: A.id, name: A.name })),
         anchors,
         tracks,
+        areaAnchors,
     };
 }

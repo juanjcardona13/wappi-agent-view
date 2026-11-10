@@ -102,7 +102,7 @@ const notes: Record<string, { text: string; tone: Tone }> = {
   pause_all: { text: 'PAUSE_ALL', tone: 'warn' },
 };
 
-const kindColor: Record<PacketKind, string> = {
+export const kindColor: Record<PacketKind, string> = {
   text: '#2f6db5',
   voice: '#d98a00',
   image: '#c2418c',

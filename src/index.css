@@ -135,8 +135,62 @@ summary::marker {
 .iso-slab[data-area='box'] .iso-slab-side { fill: #163e6e; }
 .iso-slab[data-area='cerebro'] .iso-slab-top { fill: rgba(122, 91, 211, 0.48); }
 .iso-slab[data-area='cerebro'] .iso-slab-side { fill: #4a2f96; }
-.iso-area-name { font-size: 15px; font-weight: 800; fill: var(--ink); stroke: var(--bg); stroke-width: 5px; paint-order: stroke fill; }
-.iso-label { display: block; font-size: 12px; font-weight: 700; fill: var(--ink); stroke: var(--bg); stroke-width: 4px; paint-order: stroke fill; }
+.iso-label { display: none; }
+.isoplan.diagram { position: relative; }
+.label-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.label-stems { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.label-stems line { stroke: #334155; stroke-width: 1; }
+.node-chip {
+  position: absolute;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #0f172a;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: 0;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
+  pointer-events: none;
+}
+.note-chip { border-color: #b45309; }
+.note-error { border-color: #b91c1c; }
+.note-ok { border-color: #047857; }
+.node-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 99px;
+  background: #0f172a;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.35);
+}
+.packet-face {
+  position: absolute;
+  transform: translate(-50%, -130%);
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  color: #fff;
+  font-family: Inter, system-ui, "Noto Color Emoji", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.28);
+  pointer-events: none;
+}
 .iso-track { stroke: #7d92a8; stroke-opacity: 0.35; stroke-width: 1.4; }
 .iso-scene .iso-window { fill: #10283a; }
 .iso-scene .iso-deco, .iso-scene .iso-ink { stroke: #102033; stroke-width: 1.8; fill: none; }
@@ -196,7 +250,7 @@ summary::marker {
 .topbar, .panel, .scenario-list, .now, .controls { padding: 0.6rem 0.8rem; }
 .topbar { border-bottom: 1px solid var(--line); background: var(--bg-elev); justify-content: space-between; }
 .brand { font-weight: 800; letter-spacing: -0.03em; color: inherit; text-decoration: none; font-size: 18px; }
-.zones { display: flex; gap: 10px; align-items: center; font-size: 12px; font-weight: 750; }
+.zones { display: flex; gap: 10px; align-items: center; font-size: 13px; font-weight: 600; color: var(--ink); }
 .zones .z { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 4px; }
 .zones .wa { background: #1f9d6a; }
 .zones .box { background: #2f6db5; }
@@ -238,7 +292,7 @@ summary::marker {
 .dots { display: flex; gap: 4px; }
 .dots i { width: 6px; height: 6px; border-radius: 99px; background: var(--line); display: block; }
 .dots i.is-on, .dots i.is-done { background: var(--accent); }
-.legend { display: flex; gap: 0.8rem; list-style: none; padding: 0 0.8rem; margin: 0; font-size: 12px; }
+.legend { display: flex; gap: 0.8rem; list-style: none; padding: 0 0.8rem; margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); }
 .legend i { display: inline-block; width: 8px; height: 8px; margin-right: 4px; }
 .sequence { padding: 1rem; display: grid; gap: 0.35rem; }
 .sequence [role='row'] { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; font-size: 13px; }
@@ -265,7 +319,8 @@ button[aria-pressed='true'], button[aria-checked='true'] { background: var(--acc
   .scenario-list.is-open { display: block; }
   .drawer-close { display: inline-flex; }
   [data-budget='scene'] { height: auto; }
-  .diagram { height: 42vh; min-height: 220px; flex: none; }
+  .diagram { height: 62vh; min-height: 340px; flex: none; touch-action: none; }
+  .node-chip, .packet-face, .legend, .zones { font-size: 12px; }
   .panel { position: static; max-height: none; border-left: 0; border-top: 1px solid var(--line); }
   .controls { position: fixed; left: 0; right: 0; bottom: 0; z-index: 9; height: 52px; background: var(--bg-elev); border-top: 1px solid var(--line); flex-wrap: nowrap; overflow: hidden; gap: 3px; padding: 6px 4px; }
   .controls button { padding: 0.12rem 0.32rem; font-size: 12px; }
