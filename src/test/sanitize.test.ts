@@ -45,6 +45,8 @@ describe('sanitization', () => {
         if (/\breq_[0-9a-f]{32}\b/i.test(raw)) problems.push(`${file} contiene un requestId real`);
         if (/\bmed_[0-9a-f]{24}\b/i.test(raw)) problems.push(`${file} contiene un media id real`);
         if (/\bpro_[0-9a-f]{32}\b/i.test(raw)) problems.push(`${file} contiene un id pro_ real`);
+        const modelName = new RegExp('\\\\b(' + ['cla', 'ude'].join('') + '|gpt-\\\\d|gro' + 'k-[0-9])', 'i');
+        if (file.startsWith('src/') && modelName.test(raw)) problems.push(`${file} nombra un modelo`);
         const withoutLocations = stripPaths(stripUrls(raw));
         if (/\b[A-Za-z0-9+/]{40,}={0,2}\b/.test(withoutLocations)) {
           problems.push(`${file} contiene una cadena larga tipo base64`);

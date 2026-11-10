@@ -21,7 +21,7 @@ export const swaps: Swap[] = [
   {
     id: 'brain',
     piece: 'Cerebro',
-    replaces: 'Grok Bot por otro bucle de agente. Ejemplos de la industria: Gemini, OpenAI Agents SDK, Claude o un modelo local.',
+    replaces: 'Grok Bot por otro bucle de agente. Ejemplos de proveedor: Gemini, OpenAI u otro motor local. Sin nombres de modelo.',
     contract:
       'Recibir el webhook (bearer sobre HTTPS) y devolver por POST /v1/complete con complete_request v1 o v2. El puente solo exige una URL https y un bearer. El modo se llama grok-bot, pero el despacho es un POST genérico.',
     touch:

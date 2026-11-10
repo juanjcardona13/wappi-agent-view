@@ -348,6 +348,28 @@ export function buildJourney(scenario: Scenario): Step[] {
     certainty: 'verificado',
   });
 
+  if (scenario.fault === 'duplicate') {
+    push({
+      lane: 'ida',
+      nodeId: 'dedup',
+      actor: 'Dedup',
+      codePath: 'src/persistence/store.ts',
+      title: 'El duplicado no crea otra petición',
+      body: 'El mismo evento llega otra vez. La clave única ya está reservada, así que no nace una segunda petición ni se llama al webhook.',
+      phoneEffect: note('Duplicado. No hay segunda respuesta.'),
+      factIds: ['F-040'],
+      certainty: 'verificado',
+      terminal: {
+        outcome: 'Duplicado',
+        lesson: [
+          'Dedup es de la entrada: una clave, una petición.',
+          'El segundo aviso no enciende el cerebro.',
+        ],
+      },
+    });
+    return finalize(drafts, scenario, true);
+  }
+
   if (scenario.fault === 'pause') {
     push({
       lane: 'ida',
@@ -812,6 +834,26 @@ export function buildJourney(scenario: Scenario): Step[] {
     certainty: 'verificado',
   });
 
+  if (scenario.fault === 'replay') {
+    push({
+      lane: 'vuelta',
+      nodeId: 'validate',
+      actor: 'Puente',
+      codePath: 'src/runtime.ts (claimCompletion)',
+      title: 'Mismo texto, sin reenvío',
+      body: 'La misma completionId y el mismo contenido devuelven el recibo ya guardado. No hay un segundo envío.',
+      payloadKey: 'completeResponse_ok_v1',
+      phoneEffect: note('Replay. No se vuelve a enviar.'),
+      factIds: ['F-102'],
+      certainty: 'verificado',
+      terminal: {
+        outcome: 'Replay',
+        lesson: ['Mismo id y mismo contenido no reenvían.', 'Otro contenido sería 409 conflict.'],
+      },
+    });
+    return finalize(drafts, scenario, true);
+  }
+
   if (claimFaults.includes(scenario.fault)) {
     const claim =
       scenario.fault === 'bad-handle'
@@ -1160,6 +1202,25 @@ export function buildAdminJourney(scenario: AdminScenario): Step[] {
       terminal: {
         outcome: 'Pausado',
         lesson: ['No se llama pause/resume en el código.', 'La pausa produce silencio, no un aviso en los chats.'],
+      },
+    });
+    return pack(drafts);
+  }
+
+  if (scenario.situation === 'deny') {
+    drafts.push({
+      lane: 'lateral',
+      nodeId: 'mcp-admin',
+      actor: 'MCP Admin',
+      codePath: 'src/admin/mcp.ts',
+      title: 'deny_chat',
+      body: 'Apaga un chat. Apagar el privado del dueño exige confirm. La respuesta sigue sin números ni JID.',
+      example: { tool: 'deny_chat', handle: '<CHAT_HANDLE>', confirm: true },
+      factIds: ['F-094'],
+      certainty: 'verificado',
+      terminal: {
+        outcome: 'Chat apagado',
+        lesson: ['deny_chat siempre puede apagar.', 'El privado del dueño pide confirm.'],
       },
     });
     return pack(drafts);
