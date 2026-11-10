@@ -2,7 +2,7 @@
 
 App estática, en español, para entender cómo funciona Wappi de punta a punta: WhatsApp y el dispositivo vinculado, Baileys, el puente Node, SQLite, el webhook con bearer, la rutina de Grok Bot, la box, los tres conectores MCP y el camino de vuelta.
 
-El corte de los hechos es la release `7e8b50a`, leída el 10 nov 2026. La app no se conecta a WhatsApp, al puente ni a Grok Bot. El simulador corre en el navegador.
+El corte de los hechos es la release `7e8b50a`, leída el 10 nov 2026. La app no se conecta a WhatsApp, al puente ni a Grok Bot. El explorador corre en el navegador: un diagrama isométrico y un paquete que recorre cada componente.
 
 ## Cómo correrla
 
@@ -29,11 +29,19 @@ npm run preview
 
 - `docs/SPEC.md`, `docs/ARCHITECTURE-FACTS.md`, `docs/sample-payloads.json`: las fuentes, copiadas tal cual.
 - `src/content/facts.ts` y `src/content/unknowns.ts`: generados desde la hoja de hechos.
-- `src/content/`: lecciones, nodos, módulos, conectores, piezas, seguridad, glosario, operación y el catálogo de pasos del simulador (`steps.ts`).
-- `src/pages/`: una ruta por sección.
-- `src/test/`: el motor del viaje, los ids de hechos y el test de sanitización.
+- `src/content/`: hechos, nodos, glosario, piezas, seguridad, operación y el motor de ramas (`steps.ts`).
+- `src/explorer/`: diagrama, escenarios, textos cortos y la pantalla del explorador.
+- `src/vendor/isoplan/`: plano isométrico MIT. Ver `THIRD_PARTY_NOTICES.md`.
+- `src/pages/`: biblioteca (hechos, glosario, código, operación, seguridad).
 
-Rutas: `/`, `/mapa`, `/conceptos`, `/codigo`, `/simulador`, `/conectores`, `/intercambiable`, `/seguridad`, `/operacion`, `/glosario`, `/verificado`.
+Rutas: `/` abre `/e/texto-privado`. Cada escenario vive en `/e/:id`. El texto largo está en `/biblioteca`.
+
+## Cómo añadir un escenario, un nodo o una variante
+
+1. Nodo: añádelo en `src/content/nodes.ts` y en `src/explorer/diagram.ts` (zona, `kind`, `col`/`row` y cables). El test exige que todo `nodeId` de un paso exista en el diagrama y que cada paquete use un cable real.
+2. Variante: en `src/explorer/scenarios.ts`, un chip nuevo que llama a `buildJourney`, `buildProactiveJourney` o `buildAdminJourney` con un `Scenario` ya soportado.
+3. Escenario: un `ScenarioDef` con nombre corto, resumen de menos de 40 palabras, leyenda y variantes. Si hace falta un fallo nuevo, añádelo en `steps.ts` y cubre el orden de etapas.
+4. `npm test`. El presupuesto cuenta las palabras visibles en `/e/texto-privado?paso=1`: 40 en el escenario y 120 con el panel.
 
 ## Cómo actualizar el contenido cuando Wappi cambie
 

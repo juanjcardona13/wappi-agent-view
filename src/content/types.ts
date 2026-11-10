@@ -38,7 +38,9 @@ export type Fault =
   | 'voice-too-long'
   | 'stt-fail'
   | 'queue-busy'
-  | 'pause';
+  | 'pause'
+  | 'duplicate'
+  | 'replay';
 
 export interface Scenario {
   input: InputKind;
@@ -96,7 +98,7 @@ export interface ProactiveScenario {
   fault: ProactiveFault;
 }
 
-export type AdminSituation = 'allow' | 'cap' | 'inflight' | 'pause';
+export type AdminSituation = 'allow' | 'cap' | 'inflight' | 'pause' | 'deny';
 
 export interface AdminScenario {
   situation: AdminSituation;

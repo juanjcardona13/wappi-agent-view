@@ -5,7 +5,6 @@ import { corrections } from '../content/corrections';
 import { connectors } from '../content/connectors';
 import { facts, factsById } from '../content/facts';
 import { glossary } from '../content/glossary';
-import { lessons } from '../content/lessons';
 import { commands, homes, tree } from '../content/modules';
 import { nodes } from '../content/nodes';
 import { releases } from '../content/operations';
@@ -65,7 +64,7 @@ describe('facts', () => {
 
   it('only cites fact ids that exist', () => {
     const found: string[] = [];
-    collect({ lessons, nodes, glossary, connectors, swaps, quiz, securityCards, commands, homes, tree, releases, corrections }, found);
+    collect({ nodes, glossary, connectors, swaps, quiz, securityCards, commands, homes, tree, releases, corrections }, found);
     const sample = buildJourney({ input: 'image', chat: 'group-quote', reply: 'document', fault: 'none' });
     collect(sample, found);
     for (const id of found) expect(factsById[id], id).toBeTruthy();
