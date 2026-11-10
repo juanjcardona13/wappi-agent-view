@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wappi View</title>
+    <meta
+      name="description"
+      content="Cómo piensa y responde Wappi: el viaje de un mensaje de WhatsApp, paso a paso."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <script>
+      try {
+        var choice = localStorage.getItem('wappi-view-theme');
+        var dark =
+          choice === 'dark' ||
+          (choice !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+      } catch (error) {
+        document.documentElement.dataset.theme = 'light';
+      }
+    </script>
+    <script type="module" crossorigin src="/assets/index-CD6XNXg7.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DMHy3fvl.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
