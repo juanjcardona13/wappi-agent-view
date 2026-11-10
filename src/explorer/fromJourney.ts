@@ -1,7 +1,7 @@
 import type { PhoneBubble, PhoneEffect, Step } from '../content/types';
 import { findPath, frameOf } from './diagram';
 import type { ExplorerStep, InspectorLayer, PacketKind, SceneEvent, Tone } from './types';
-import { clipWords } from './words';
+import { clipWords, wordCount } from './words';
 
 const titles: Record<string, string> = {
   'Alguien envía un mensaje': 'Llega el texto',
@@ -115,6 +115,34 @@ const kindColor: Record<PacketKind, string> = {
   receipt: '#17a067',
   control: '#5b6b7a',
 };
+
+const dangling = new Set(['ni', 'y', 'o', 'u', 'de', 'con', 'en', 'por', 'a', 'al', 'del', 'que', 'no', 'el', 'la', 'los', 'las', 'un', 'una', 'su', 'sus']);
+
+function tidy(words: string[], max: number): string {
+  const cut = words.slice(0, max);
+  while (cut.length > 3 && dangling.has(cut[cut.length - 1].toLowerCase())) cut.pop();
+  return cut.join(' ');
+}
+
+function caption(text: string): string {
+  const clean = text.replace(/[«»“”]/g, '').replace(/\s+/g, ' ').trim();
+  const sentence = (clean.split(/[.!?]/)[0] ?? clean).trim();
+  const words = sentence.split(/\s+/).filter(Boolean);
+  if (words.length <= 8 && !dangling.has(words[words.length - 1]?.toLowerCase() ?? '')) return sentence;
+  return tidy(words, 8);
+}
+
+function completeSentences(text: string, max: number): string {
+  const clean = text.replace(/[«»“”]/g, '').replace(/\s+/g, ' ').trim();
+  const parts = clean.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const kept: string[] = [];
+  for (const part of parts) {
+    const next = [...kept, part].join(' ');
+    if (wordCount(next) > max) break;
+    kept.push(part);
+  }
+  return kept.length ? kept.join(' ') : tidy(clean.split(/\s+/).filter(Boolean), max);
+}
 
 function kindFor(step: Step): PacketKind {
   if (step.nodeId === 'receipts') return 'receipt';
@@ -249,8 +277,8 @@ export function toExplorerSteps(steps: Step[], extraNote?: { text: string; tone:
     return {
       id: step.id,
       title,
-      desc: clipWords(step.body, 8),
-      detail: clipWords(step.body, 40),
+      desc: caption(step.body),
+      detail: completeSentences(step.body, 40),
       facts: [
         ['Etapa', step.stage ?? 'ninguna'],
         ['Estado', step.requestState ?? 'sigue'],

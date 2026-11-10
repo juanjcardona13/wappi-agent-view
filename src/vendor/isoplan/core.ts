@@ -174,7 +174,7 @@ const S = 46;
 const STEP = 2.4;
 const MIN_SLOTS = 4;
 const SUBROW = 2.2;
-const GAP = 0.9;
+const GAP = 2.2;
 const PAD = 0.95;
 // Extra floor on the left of each band, so the next band's pieces never sit under the band name.
 const LEFT = 1.3;
@@ -270,6 +270,11 @@ const frontWindow = (x0: number, yf: number, z0: number, w: number, h: number) =
 const sideWindow = (xf: number, y0: number, z0: number, dd: number, h: number) =>
     `<path class="iso-window" d="${polygon([P(xf, y0, z0), P(xf, y0 + dd, z0), P(xf, y0 + dd, z0 + h), P(xf, y0, z0 + h)])}"/>`;
 
+function speakerish(x: number, y: number) {
+    const [sx, sy] = P(x + 0.2, y, 0.2);
+    return `<circle class="iso-deco" cx="${f(sx)}" cy="${f(sy)}" r="3"/>`;
+}
+
 function clock(x: number, y: number, z: number) {
     const [cx, cy] = P(x, y, z);
     const rx = 0.25 * C * S * Math.SQRT2;
@@ -311,8 +316,12 @@ function shape(kind: string, x: number, y: number): [string, number] {
             return [cylinder(x, y, 0.4, kind === 'db' ? 0.75 : 0.5, kind === 'db' ? [0.25, 0.5] : [0.25]), kind === 'db' ? 0.75 : 0.5];
         case 'queue': {
             let g = '';
-            for (let i = 0; i < 3; i++) g += box(x - 0.45, y - 0.38, 0.9, 0.76, 0.14, i * 0.21);
-            return [g, 0.56];
+            for (let i = 0; i < 3; i++) {
+                g += box(x - 0.42 + i * 0.06, y - 0.28 - i * 0.04, 0.78, 0.5, 0.1, i * 0.16);
+                const [fx, fy] = P(x, y - 0.02, 0.12 + i * 0.16);
+                g += `<path class="iso-deco" d="M${f(fx - 10)} ${f(fy)}L${f(fx)} ${f(fy + 5)}L${f(fx + 10)} ${f(fy)}"/>`;
+            }
+            return [g, 0.58];
         }
         case 'storage':
         case 'repo':
@@ -331,37 +340,63 @@ function shape(kind: string, x: number, y: number): [string, number] {
             for (let i = 0; i < 2; i++) g += box(x - 0.5 + i * 0.12, y - 0.36 - i * 0.12, 0.9, 0.62, 0.32, i * 0.34);
             return [g, 0.68];
         }
-        case 'phone':
-            return [box(x - 0.28, y - 0.18, 0.56, 0.28, 0.9) + frontWindow(x - 0.18, y + 0.1, 0.16, 0.36, 0.62), 0.9];
-        case 'cloud':
-            return [box(x - 0.7, y - 0.35, 1.4, 0.7, 0.45), 0.45];
-        case 'lock':
-        case 'cylinder-lock':
-            return [cylinder(x, y, 0.28, 0.55, [0.2, 0.4]) + clock(x, y, 0.7), 0.7];
-        case 'link':
-            return [box(x - 0.55, y - 0.2, 0.4, 0.4, 0.28) + box(x + 0.15, y - 0.2, 0.4, 0.4, 0.28), 0.28];
-        case 'antenna':
-        case 'cannon': {
-            const [tx, ty] = P(x, y, 0.7);
-            return [box(x - 0.35, y - 0.35, 0.7, 0.7, 0.55) + `<path class="iso-deco" d="M${f(tx)} ${f(ty)}L${f(tx)} ${f(ty - 18)}"/>`, 1.05];
+        case 'phone': {
+            let g = box(x - 0.26, y - 0.16, 0.52, 0.32, 1.2);
+            g += frontWindow(x - 0.16, y + 0.16, 0.28, 0.32, 0.7);
+            const [sx, sy] = P(x, y + 0.16, 0.22);
+            g += `<circle class="iso-deco" cx="${f(sx)}" cy="${f(sy)}" r="2.2"/>`;
+            return [g, 1.2];
         }
+        case 'cloud': {
+            let g = box(x - 0.72, y - 0.42, 1.44, 0.84, 0.18);
+            g += cylinder(x - 0.36, y, 0.18, 0.72, [0.24, 0.48]);
+            g += cylinder(x + 0.02, y, 0.18, 0.92, [0.3, 0.6]);
+            g += cylinder(x + 0.4, y, 0.18, 0.62, [0.2, 0.4]);
+            return [g, 0.92];
+        }
+        case 'lock': {
+            const body = box(x - 0.28, y - 0.22, 0.56, 0.44, 0.42);
+            const [sx, sy] = P(x, y, 0.62);
+            const shackle = `<path class="iso-ink" d="M${f(sx - 8)} ${f(sy + 4)}L${f(sx - 8)} ${f(sy - 10)}A8 8 0 0 1 ${f(sx + 8)} ${f(sy - 10)}L${f(sx + 8)} ${f(sy + 4)}"/>`;
+            return [body + shackle, 0.9];
+        }
+        case 'cylinder-lock':
+            return [cylinder(x, y, 0.38, 0.95, [0.22, 0.48, 0.72]) + clock(x, y + 0.02, 0.5), 0.95];
+        case 'link': {
+            const [sx, sy] = P(x, y, 0.35);
+            return [box(x - 0.5, y - 0.18, 0.36, 0.36, 0.22) + box(x + 0.14, y - 0.18, 0.36, 0.36, 0.22) + `<path class="iso-deco" d="M${f(sx - 8)} ${f(sy)}L${f(sx + 8)} ${f(sy)}"/>`, 0.35];
+        }
+        case 'antenna': {
+            const [tx, ty] = P(x, y, 0.55);
+            const mast = `<path class="iso-deco" d="M${f(tx)} ${f(ty)}L${f(tx)} ${f(ty - 22)}M${f(tx - 8)} ${f(ty - 16)}L${f(tx + 8)} ${f(ty - 16)}"/>`;
+            return [box(x - 0.34, y - 0.34, 0.68, 0.68, 0.4) + mast, 1.15];
+        }
+        case 'cannon':
+            return [box(x - 0.2, y - 0.2, 0.9, 0.4, 0.28) + cylinder(x + 0.15, y, 0.16, 0.55, [0.2]), 0.55];
         case 'funnel':
+            return [box(x - 0.55, y - 0.38, 1.1, 0.76, 0.22, 0.5) + box(x - 0.16, y - 0.12, 0.32, 0.24, 0.5), 0.72];
         case 'stamp':
+            return [cylinder(x, y, 0.34, 0.22, []) + box(x - 0.22, y - 0.22, 0.44, 0.44, 0.12, 0.22), 0.34];
         case 'gate':
+            return [box(x - 0.5, y - 0.12, 0.18, 0.24, 0.7) + box(x + 0.32, y - 0.12, 0.18, 0.24, 0.7) + box(x - 0.5, y - 0.12, 1, 0.24, 0.12, 0.7), 0.82];
         case 'customs':
-            return [box(x - 0.4, y - 0.4, 0.8, 0.8, 0.5) + frontWindow(x - 0.22, y + 0.4, 0.12, 0.44, 0.26), 0.5];
+            return [box(x - 0.48, y - 0.36, 0.96, 0.72, 0.7) + frontWindow(x - 0.28, y + 0.36, 0.16, 0.56, 0.4), 0.7];
         case 'mic':
+            return [cylinder(x, y, 0.16, 0.55, [0.2]) + box(x - 0.08, y - 0.08, 0.16, 0.16, 0.35, 0.55), 0.9];
         case 'speaker':
-            return [cylinder(x, y, 0.22, 0.7, [0.25, 0.5]), 0.7];
-        case 'plug':
-            return [box(x - 0.22, y - 0.22, 0.44, 0.44, 0.35), 0.35];
+            return [box(x - 0.34, y - 0.28, 0.68, 0.5, 0.55) + cylinder(x, y + 0.05, 0.16, 0.08, []), 0.55];
+        case 'plug': {
+            const [sx, sy] = P(x, y, 0.42);
+            return [box(x - 0.28, y - 0.22, 0.56, 0.44, 0.36) + `<path class="iso-deco" d="M${f(sx - 4)} ${f(sy)}L${f(sx - 4)} ${f(sy - 10)}M${f(sx + 4)} ${f(sy)}L${f(sx + 4)} ${f(sy - 10)}"/>`, 0.7];
+        }
         case 'brain':
         case 'robot': {
-            const [tx, ty] = P(x, y, 0.8);
-            return [cylinder(x, y, 0.36, 0.8, [0.3]) + `<circle class="iso-deco" cx="${f(tx)}" cy="${f(ty - 8)}" r="5"/>`, 1];
+            const [sx, sy] = P(x, y, 0.55);
+            const lobes = `<ellipse class="iso-lobe" cx="${f(sx - 8)}" cy="${f(sy)}" rx="14" ry="10"/><ellipse class="iso-lobe" cx="${f(sx + 8)}" cy="${f(sy)}" rx="14" ry="10"/>`;
+            return [cylinder(x, y, 0.28, 0.35, []) + lobes, 0.7];
         }
         case 'toolbox':
-            return [box(x - 0.5, y - 0.32, 1, 0.64, 0.4) + box(x - 0.16, y - 0.08, 0.32, 0.16, 0.18, 0.4), 0.58];
+            return [box(x - 0.5, y - 0.32, 1, 0.64, 0.38) + box(x - 0.18, y - 0.08, 0.36, 0.16, 0.16, 0.38) + speakerish(x, y), 0.62];
         default:
             return [box(x - a, y - a, 2 * a, 2 * a, 0.75) + sideWindow(x + a, y - 0.18, 0.44, 0.36, 0.14), 0.75];
     }
@@ -561,7 +596,7 @@ export function renderPlan(graph: Graph, options: RenderOptions = {}): Plan {
         const top = P(x, y, h);
         anchors[n.id] = { x: top[0], y: top[1] };
         const ext = SHADED_KINDS.has(n.kind) ? ' iso-ext' : '';
-        o += `<g class="iso-piece${ext}" data-id="${escapeXml(n.id)}" tabindex="0" role="button" aria-label="${num[n.id]} ${escapeXml(n.label)}">${g}</g>`;
+        o += `<g class="iso-piece${ext}" data-id="${escapeXml(n.id)}" data-kind="${escapeXml(n.kind)}" tabindex="0" role="button" aria-label="${escapeXml(n.label)}">${g}</g>`;
     }
 
     let names = '';
@@ -569,28 +604,16 @@ export function renderPlan(graph: Graph, options: RenderOptions = {}): Plan {
     for (const A of areas) {
         for (const c of [P(A.x0, A.y0), P(A.x1, A.y0), P(A.x1, A.y1, SLAB_DEPTH), P(A.x0, A.y1, SLAB_DEPTH)]) extremes.push(c);
         if (!A.name) continue;
-        const width = A.name.length * 12.5 + 8;
-        if (A.id === '_external' || A.id === '_repo') {
-            const [x, y] = P(A.x1, A.y0);
-            names += `<text class="iso-area-name" x="${f(x + 12)}" y="${f(y + 2)}">${escapeXml(A.name)}</text>`;
-            extremes.push([x + 12 + width, y - 18]);
-        } else {
-            const [x, y] = P(A.x0, A.y1);
-            names += `<text class="iso-area-name" x="${f(x - 12)}" y="${f(y + 6)}" text-anchor="end">${escapeXml(A.name)}</text>`;
-            extremes.push([x - 12 - width, y - 14]);
-        }
-    }
-    for (const Q of blocks) {
-        const [x, y] = P(Q.x1, Q.y1);
-        names += `<text class="iso-block-name" x="${f(x)}" y="${f(y + 16)}" text-anchor="middle">${escapeXml(Q.name)}</text>`;
+        // Zone names live in the page key. Drawn here they land on the next plate.
     }
     let tags = '';
     for (const n of order) {
         const [x, y] = pos(n);
         const [lx, ly] = P(x, y, height[n.id]);
-        const width = (String(num[n.id]).length + 1 + n.label.length) * 10.4 + 8;
-        extremes.push([lx - width / 2, ly - 26], [lx + width / 2, ly]);
-        tags += `<text class="iso-label" data-id="${escapeXml(n.id)}" x="${f(lx)}" y="${f(ly - 9)}" text-anchor="middle"><tspan class="iso-num">${num[n.id]}</tspan> ${escapeXml(n.label)}</text>`;
+        const width = n.label.length * 7.2 + 8;
+        const dy = n.row % 2 === 0 ? -12 : 18;
+        extremes.push([lx - width / 2, ly + dy - 14], [lx + width / 2, ly + dy]);
+        tags += `<text class="iso-label" data-id="${escapeXml(n.id)}" x="${f(lx)}" y="${f(ly + dy)}" text-anchor="middle">${escapeXml(n.label)}</text>`;
     }
     o += names + tags;
 

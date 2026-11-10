@@ -110,7 +110,7 @@ describe('explorador', () => {
     );
     await screen.findByRole('img', { name: 'Diagrama de Wappi' });
     await user.keyboard('{ArrowRight}');
-    expect(screen.getByText(/2\//)).toBeInTheDocument();
+    expect(document.querySelector('.now-title')?.textContent).toMatch(/2 de/);
     expect(document.querySelector('.sr-only[aria-live="polite"]')?.textContent).toMatch(/Paso 2/);
     await user.keyboard('v');
     expect(screen.getByRole('table', { name: 'Secuencia' })).toBeInTheDocument();

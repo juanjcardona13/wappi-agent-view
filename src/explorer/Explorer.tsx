@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { nodesById } from '../content/nodes';
 import { swapsById } from '../content/swaps';
 import { renderPlan } from '../vendor/isoplan/core';
 import { graph } from './diagram';
@@ -9,11 +8,32 @@ import { useExplorer, type Speed } from './store';
 import type { ExplorerStep, SceneEvent, ScenarioId } from './types';
 
 const groups = [
-  ['mensajes', 'Mensajes'],
-  ['defensas', 'Defensas'],
-  ['control', 'Control'],
-  ['arquitectura', 'Piezas'],
+  ['mensajes', 'Mensajes', '✉'],
+  ['defensas', 'Defensas', '⛨'],
+  ['control', 'Control', '⚙'],
+  ['arquitectura', 'Piezas', '⧉'],
 ] as const;
+
+const tabLabel: Record<string, string> = {
+  detalle: 'Detalle',
+  inspector: 'Inspector',
+  codigo: 'Código',
+  bitacora: 'Bitácora',
+};
+
+const packetFace: Record<string, string> = {
+  text: '💬 texto',
+  voice: '🎤 audio',
+  image: '🖼 imagen',
+  document: '📄 doc',
+  encrypted: '🔒 cifrado',
+  ticket: '🎫 ficha',
+  https: '🔒 webhook',
+  mcp: '🔌 mcp',
+  'http-local': '↩ local',
+  receipt: '✓ recibo',
+  control: '⚙ control',
+};
 
 const speeds: Speed[] = [0.5, 1, 1.5, 2];
 
@@ -120,47 +140,55 @@ export function Explorer() {
     root.querySelectorAll('.iso-piece').forEach((node) => {
       node.classList.toggle('is-on', node.getAttribute('data-id') === activeId);
     });
-    const anchor = plan.anchors[activeId];
-    if (!anchor) return;
-    const frame = search.get('vista') === 'secuencia' ? null : anchor;
-    if (!frame) return;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const next = `${(anchor.x - 220).toFixed(1)} ${(anchor.y - 180).toFixed(1)} 440 320`;
-    if (reduced || view === 'secuencia') root.setAttribute('viewBox', plan.viewBox);
-    else root.setAttribute('viewBox', stepIndex < 0 ? plan.viewBox : next);
-    root.dataset.motion = reduced ? 'cut' : 'move';
-  }, [activeId, plan, stepIndex, view, search]);
+    root.querySelectorAll('.iso-label').forEach((node) => root.appendChild(node));
+    root.setAttribute('viewBox', plan.viewBox);
+    const hot = [...(step?.events ?? [])].find((event) => event.type === 'packet');
+    root.querySelectorAll('.iso-track').forEach((path) => {
+      const edge = path.getAttribute('data-edge');
+      path.classList.toggle('is-hot', Boolean(hot && hot.type === 'packet' && hot.edge === edge));
+    });
+    root.dataset.motion = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'cut' : 'move';
+  }, [activeId, plan, step]);
 
   useEffect(() => {
-    const packetEvent = [...(step?.events ?? [])].slice(0, eventIndex + 1).reverse().find((event) => event.type === 'packet');
+    const node = packetRef.current;
+    if (!node) return;
+    if (stepIndex < 0) {
+      node.setAttribute('opacity', '0');
+      return;
+    }
+    const packetEvent = [...(step?.events ?? [])].reverse().find((event) => event.type === 'packet');
+    const anchor = plan.anchors[activeId];
     const path = packetEvent && packetEvent.type === 'packet'
       ? svgRef.current?.querySelector(`path[data-edge="${CSS.escape(packetEvent.edge)}"]`)
       : null;
-    const node = packetRef.current;
-    if (!path || !node || !(path instanceof SVGPathElement)) {
-      node?.setAttribute('opacity', '0');
+    node.setAttribute('opacity', '1');
+    const park = (x: number, y: number) => node.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+    const drawable = path && 'getTotalLength' in path ? (path as SVGPathElement) : null;
+    if (!drawable) {
+      if (anchor) park(anchor.x, anchor.y + 26);
       return;
     }
-    node.setAttribute('opacity', '1');
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const total = path.getTotalLength();
+    const total = drawable.getTotalLength();
     const paint = (t: number) => {
-      const point = path.getPointAtLength(total * t);
-      node.setAttribute('transform', `translate(${point.x.toFixed(1)} ${point.y.toFixed(1)})`);
+      const point = drawable.getPointAtLength(total * t);
+      park(point.x, point.y + 26);
     };
     if (reduced) {
-      paint(1);
+      paint(0.72);
       return;
     }
     const started = performance.now();
     let frame = 0;
     const tick = (now: number) => {
-      paint(Math.min(1, (now - started) / (700 / speed)));
-      if (now - started < 700 / speed) frame = requestAnimationFrame(tick);
+      const t = Math.min(0.72, ((now - started) / (900 / speed)) * 0.72);
+      paint(t);
+      if (t < 0.72) frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [step, eventIndex, speed]);
+  }, [step, stepIndex, activeId, plan, speed]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -209,25 +237,25 @@ export function Explorer() {
   const swap = variant.swapId ? swapsById[variant.swapId] : undefined;
   const shownPackets = steps.slice(0, Math.max(0, stepIndex + 1)).flatMap(packetsOf);
   const currentPacket = packetsOf(step).at(-1);
-  const nodeInfo = nodesById[activeId];
   const done = stepIndex >= steps.length - 1 && !playing && stepIndex >= 0;
 
   return (
     <div className={`explorer ${listOpen ? '' : 'is-list-off'} ${diagramOnly ? 'is-diagram' : ''}`} data-budget="all">
       <header className="topbar">
         <Link to="/e/texto-privado" className="brand">Wappi</Link>
-        <p className="message-bar" data-budget="scene-message">{stepIndex < 0 ? def.name : steps[0]?.events.find((event) => event.type === 'type-message' && 'text' in event) ? (steps[0].events.find((event) => event.type === 'type-message') as { text?: string } | undefined)?.text : def.name}</p>
+        <p className="crumb">{def.name}</p>
         <button type="button" aria-label="Buscar" onClick={() => useExplorer.getState().setSearch(true)}>⌘K</button>
         <button type="button" aria-label="Tema" onClick={() => useExplorer.getState().toggleTheme()}>Tema</button>
         <button type="button" aria-label="Atajos" onClick={() => useExplorer.getState().setHelp(true)}>?</button>
-        <Link to="/biblioteca" aria-label="Biblioteca">Libros</Link>
+        <span className="zones"><i className="z wa" /> WhatsApp <i className="z box" /> Box <i className="z brain" /> Cerebro</span>
+        <Link to="/biblioteca">Biblioteca</Link>
       </header>
       <div className="explorer-body">
         <aside className={`scenario-list ${listOpen ? 'is-open' : ''}`} aria-label="Escenarios">
           <button type="button" className="drawer-close" onClick={() => useExplorer.getState().toggleList()}>Cerrar</button>
-          {groups.map(([id, label]) => (
+          {groups.map(([id, label, icon]) => (
             <div key={id}>
-              <h2>{label} <span>{scenarios.filter((item) => item.group === id).length}</span></h2>
+              <h2><span aria-hidden="true">{icon}</span> {label} <span>{scenarios.filter((item) => item.group === id).length}</span></h2>
               <ul>
                 {scenarios.filter((item) => item.group === id).map((item) => (
                   <li key={item.id}>
@@ -250,8 +278,8 @@ export function Explorer() {
                 <svg ref={svgRef} className="diagram-svg" role="img" aria-label="Diagrama de Wappi" viewBox={plan.viewBox}>
                   <g dangerouslySetInnerHTML={{ __html: plan.svg }} />
                   <g ref={packetRef} className="packet" opacity="0">
-                    <rect className="packet-chip" width="74" height="22" rx="6" fill={currentPacket?.color ?? '#2f6db5'} />
-                    <text className="packet-label" x="37" y="15" textAnchor="middle">{currentPacket?.label ?? ''}</text>
+                    <rect className="packet-chip" x="-68" y="-20" width="136" height="40" rx="14" fill={currentPacket?.color ?? '#1f9d6a'} />
+                    <text className="packet-label" textAnchor="middle" y="5">{packetFace[currentPacket?.kind ?? 'text']}</text>
                   </g>
                   {step?.events.filter((event) => event.type === 'note').map((event) => {
                     if (event.type !== 'note') return null;
@@ -281,8 +309,8 @@ export function Explorer() {
             ))}
           </ul>
           <div className="now">
-            <p><span>{stepIndex < 0 ? '0' : stepIndex + 1}/{steps.length}</span> {step?.title ?? def.title}</p>
-            <p>{step?.desc ?? clipOverview(def.overview.description)}</p>
+            <p className="now-title"><span>{stepIndex < 0 ? 0 : stepIndex + 1} de {steps.length}</span> {step?.title ?? def.title}</p>
+            <p className="now-desc">{step ? step.desc : def.overview.full}</p>
             <div className="dots" aria-hidden="true">
               {steps.map((item, index) => <i key={item.id} className={index === stepIndex ? 'is-on' : index < stepIndex ? 'is-done' : ''} />)}
             </div>
@@ -305,19 +333,21 @@ export function Explorer() {
           <aside className="panel" data-budget="panel">
             <div className="tabs" role="tablist">
               {(['detalle', 'inspector', 'codigo', 'bitacora'] as const).map((id) => (
-                <button key={id} type="button" role="tab" aria-selected={panel === id} onClick={() => useExplorer.getState().setPanel(id)}>{id}</button>
+                <button key={id} type="button" role="tab" aria-selected={panel === id} onClick={() => useExplorer.getState().setPanel(id)}>{tabLabel[id]}</button>
               ))}
             </div>
             {stepIndex < 0 ? <Overview def={def} onPlay={() => useExplorer.getState().goto(0)} /> : null}
             {step && panel === 'detalle' ? (
-              <div>
+              <div className="detail">
+                <h2>{step.title}</h2>
+                <p className="lede">{step.desc}</p>
                 <p>{step.detail}</p>
-                <dl>
+                <dl className="kv">
                   {step.facts.map(([label, value]) => (
                     <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
                   ))}
                 </dl>
-                <p className="certainty">{step.certainty === 'general' ? 'Conocimiento general' : step.certainty === 'no-verificado' ? 'No verificado' : 'Verificado'}</p>
+                <p className={`badge badge-${step.certainty}`}>{step.certainty === 'general' ? 'Conocimiento general' : step.certainty === 'no-verificado' ? 'No verificado' : 'Verificado'}</p>
                 <button type="button" onClick={() => useExplorer.getState().setLong(true)}>Leer más</button>
               </div>
             ) : null}
@@ -351,7 +381,6 @@ export function Explorer() {
                 <button key={item.id} type="button" aria-pressed={item.id === variant.id} onClick={() => setSearch({ variante: item.id, paso: '1' })}>{item.label}</button>
               ))}
             </div>
-            {nodeInfo ? <p className="node-blurb">{nodeInfo.title}</p> : null}
           </aside>
         ) : null}
       </div>
@@ -362,10 +391,6 @@ export function Explorer() {
       {swap ? <p className="sr-only">Pieza {swap.piece}. {insideBox ? 'Dentro' : 'Fuera'}.</p> : null}
     </div>
   );
-}
-
-function clipOverview(text: string) {
-  return text.split(/\s+/).slice(0, 12).join(' ');
 }
 
 function Overview({ def, onPlay }: { def: (typeof scenarios)[number]; onPlay: () => void }) {
@@ -380,18 +405,20 @@ function Overview({ def, onPlay }: { def: (typeof scenarios)[number]; onPlay: ()
 
 function Inspector({ packets }: { packets: Extract<SceneEvent, { type: 'packet' }>[] }) {
   const packet = packets.at(-1);
-  if (!packet) return <p>Sin paquete.</p>;
+  if (!packet) return <p>Sin paquete en este paso.</p>;
   return (
-    <div>
-      <p>{packet.label} · EJEMPLO</p>
+    <div className="inspector">
+      <p className="lede">{packetFace[packet.kind] ?? packet.label}</p>
       {(packet.layers ?? []).map((layer) => (
-        <section key={layer.name}>
+        <section key={layer.name} className="layer">
           <h3>{layer.name}</h3>
-          <ul>
-            {layer.fields.map((field) => (
-              <li key={field.name}><strong>{field.name}</strong> {field.value} {field.tag ? <em>{field.tag}</em> : null}</li>
-            ))}
-          </ul>
+          {layer.fields.map((field) => (
+            <div key={field.name} className="field">
+              <div className="field-head"><strong>{field.name}</strong>{field.tag ? <em>{field.tag}</em> : null}</div>
+              <code>{field.value}</code>
+              {field.note ? <p>{field.note}</p> : null}
+            </div>
+          ))}
         </section>
       ))}
     </div>
