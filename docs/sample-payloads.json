@@ -1,0 +1,409 @@
+{
+  "_note": "Formas SANITIZADAS derivadas del código de la release 7e8b50a (src/runtime.ts, src/return/mcp.ts, src/media/outbound-contract.ts, src/proactive/schema.ts, src/admin/mcp.ts). Todos los valores son de ejemplo/placeholder. Nunca reemplazar por datos reales.",
+  "baileysUpsertEvent_simplified": {
+    "_source": "src/inbound/normalize.ts (RawMessage), evento Baileys messages.upsert",
+    "type": "notify",
+    "messages": [
+      {
+        "key": {
+          "remoteJid": "<CHAT_JID>",
+          "participant": "<SENDER_JID_solo_en_grupos>",
+          "fromMe": false,
+          "id": "<WA_MESSAGE_ID>"
+        },
+        "messageTimestamp": "<UNIX_SECONDS>",
+        "pushName": "<NOMBRE_VISIBLE>",
+        "message": {
+          "extendedTextMessage": {
+            "text": "@Wappi ¿me resumes este PDF?",
+            "contextInfo": {
+              "mentionedJid": [
+                "<WAPPI_JID>"
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "webhookRequest_inbound": {
+    "_source": "src/runtime.ts dispatchBrain + src/brain/grok-webhook.ts",
+    "http": {
+      "method": "POST",
+      "url": "<WEBHOOK_URL> (HTTPS, rutina de Grok Bot)",
+      "headers": {
+        "authorization": "<ROUTINE_BEARER_REDACTED>",
+        "content-type": "application/json",
+        "user-agent": "wappi-bridge/0.1"
+      },
+      "redirect": "error",
+      "timeoutMs": 15000
+    },
+    "body": {
+      "schemaVersion": 1,
+      "kind": "wappi.inbound",
+      "policyRef": "wappi-policy-1",
+      "baseline": "<texto de prompts/baseline.es.md>",
+      "request": {
+        "requestId": "req_<32_HEX>",
+        "sourceEventId": "<WA_MESSAGE_ID>",
+        "receivedAt": "2026-11-10T12:00:00.000Z",
+        "expiresAt": "2026-11-10T12:10:00.000Z",
+        "conversationRef": "c_<16_HEX>",
+        "senderRef": "s_<16_HEX>",
+        "replyHandle": "<REPLY_HANDLE_REDACTED>",
+        "reply": {
+          "attachmentDir": "<DATA_DIR>/outgoing/req_<32_HEX>",
+          "limits": {
+            "maxAttachments": 3,
+            "maxBytes": 20000000,
+            "maxTextChars": 4000,
+            "captionMaxChars": 1024,
+            "voiceMaxSeconds": 180,
+            "kinds": [
+              "image",
+              "document",
+              "audio",
+              "voice"
+            ]
+          }
+        },
+        "untrusted": {
+          "text": "@Wappi ¿me resumes este PDF?",
+          "pushName": "<NOMBRE_VISIBLE>",
+          "quotedText": null,
+          "media": [
+            {
+              "id": "med_<24_HEX>",
+              "mime": "application/pdf",
+              "size": 120000,
+              "sha256": "<SHA256_HEX>"
+            }
+          ]
+        },
+        "history": [
+          {
+            "role": "user",
+            "senderRef": "s_<16_HEX>",
+            "text": "Hola Wappi"
+          },
+          {
+            "role": "assistant",
+            "senderRef": "s_<16_HEX>",
+            "text": "¡Hola! ¿En qué te ayudo?"
+          }
+        ]
+      }
+    }
+  },
+  "webhookRequest_voiceNoteWithStt": {
+    "_source": "deploy/ROUTINE-MEDIA.md: la transcripción va solo en untrusted.text",
+    "request.untrusted": {
+      "text": "<transcripción de whisper.cpp>",
+      "pushName": "<NOMBRE_VISIBLE>",
+      "quotedText": null,
+      "media": [
+        {
+          "id": "med_<24_HEX>",
+          "mime": "audio/ogg",
+          "size": 18000,
+          "sha256": "<SHA256_HEX>"
+        }
+      ]
+    }
+  },
+  "webhookRequest_quoteOfWappi": {
+    "_source": "deploy/ROUTINE-MEDIA.md, src/inbound/normalize.ts (quotedLabel)",
+    "request.untrusted": {
+      "text": "¿y eso qué significa?",
+      "pushName": "<NOMBRE_VISIBLE>",
+      "quotedText": "<fragmento citado>",
+      "replyToWappi": true,
+      "quotedKind": "voice",
+      "quotedLabel": "nota de voz de Wappi"
+    }
+  },
+  "mcp_toolsCall_completeRequest_v1": {
+    "_source": "src/return/mcp.ts (JSON-RPC por línea sobre stdio)",
+    "jsonrpc": "2.0",
+    "id": 7,
+    "method": "tools/call",
+    "params": {
+      "name": "complete_request",
+      "arguments": {
+        "schemaVersion": 1,
+        "requestId": "req_<32_HEX>",
+        "replyHandle": "<REPLY_HANDLE_REDACTED>",
+        "completionId": "cmp-<ALEATORIO>",
+        "text": "Claro: el PDF trata de…"
+      }
+    }
+  },
+  "mcp_toolsCall_completeRequest_v2_voice": {
+    "_source": "src/media/outbound-contract.ts, deploy/ROUTINE-OUTBOUND-MEDIA.md",
+    "jsonrpc": "2.0",
+    "id": 8,
+    "method": "tools/call",
+    "params": {
+      "name": "complete_request",
+      "arguments": {
+        "schemaVersion": 2,
+        "requestId": "req_<32_HEX>",
+        "replyHandle": "<REPLY_HANDLE_REDACTED>",
+        "completionId": "cmp-<ALEATORIO>",
+        "text": "Te mando la explicación en audio.",
+        "attachments": [
+          {
+            "kind": "voice",
+            "file": "nota.mp3",
+            "sha256": "<SHA256_HEX>"
+          }
+        ]
+      }
+    }
+  },
+  "mcp_toolsCall_completeRequest_v2_imageAndDoc": {
+    "params": {
+      "name": "complete_request",
+      "arguments": {
+        "schemaVersion": 2,
+        "requestId": "req_<32_HEX>",
+        "replyHandle": "<REPLY_HANDLE_REDACTED>",
+        "completionId": "cmp-<ALEATORIO>",
+        "text": "Aquí va la gráfica y el resumen.",
+        "attachments": [
+          {
+            "kind": "image",
+            "file": "grafica.png",
+            "sha256": "<SHA256_HEX>",
+            "caption": "Gráfica"
+          },
+          {
+            "kind": "document",
+            "file": "resumen.pdf",
+            "sha256": "<SHA256_HEX>",
+            "fileName": "Resumen.pdf"
+          }
+        ]
+      }
+    }
+  },
+  "returnHttp_toBridge": {
+    "_source": "src/return/mcp.ts postComplete",
+    "method": "POST",
+    "url": "http://127.0.0.1:<PORT>/v1/complete",
+    "headers": {
+      "authorization": "<RETURN_BEARER_REDACTED>",
+      "content-type": "application/json"
+    },
+    "body": "<los mismos arguments de complete_request>"
+  },
+  "completeResponse_ok_v1": {
+    "_source": "src/runtime.ts publicReceipt",
+    "ok": true,
+    "receipt": {
+      "requestId": "req_<32_HEX>",
+      "completionId": "cmp-<ALEATORIO>",
+      "outcome": "transport_accepted",
+      "outboxState": "accepted",
+      "transportId": "<WA_OUT_ID>"
+    }
+  },
+  "completeResponse_ok_v2": {
+    "ok": true,
+    "receipt": {
+      "requestId": "req_<32_HEX>",
+      "completionId": "cmp-<ALEATORIO>",
+      "outcome": "partial",
+      "outboxState": "accepted",
+      "parts": [
+        {
+          "kind": "text",
+          "state": "accepted"
+        },
+        {
+          "kind": "voice",
+          "state": "failed"
+        }
+      ]
+    }
+  },
+  "completeResponse_errors": {
+    "_source": "src/runtime.ts statusFor, src/media/outbound-contract.ts",
+    "examples": [
+      {
+        "status": 400,
+        "body": {
+          "ok": false,
+          "error": "destination_forbidden"
+        },
+        "why": "se envió un campo extra como 'to' o 'chatId'"
+      },
+      {
+        "status": 401,
+        "body": {
+          "ok": false,
+          "error": "handle"
+        },
+        "why": "replyHandle no coincide con el hash guardado"
+      },
+      {
+        "status": 404,
+        "body": {
+          "ok": false,
+          "error": "not_found"
+        },
+        "why": "requestId desconocido"
+      },
+      {
+        "status": 409,
+        "body": {
+          "ok": false,
+          "error": "conflict"
+        },
+        "why": "mismo completionId con otro contenido"
+      },
+      {
+        "status": 410,
+        "body": {
+          "ok": false,
+          "error": "expired"
+        },
+        "why": "pasaron los 10 minutos"
+      },
+      {
+        "status": 429,
+        "body": {
+          "ok": false,
+          "error": "media_rate"
+        },
+        "why": "más de 30 medios salientes por hora"
+      },
+      {
+        "status": 403,
+        "body": {
+          "ok": false,
+          "error": "media_disabled"
+        },
+        "why": "adjuntos con WAPPI_OUTBOUND_MEDIA=false"
+      }
+    ]
+  },
+  "receiptUpdate_fromWhatsApp": {
+    "_source": "src/receipts.ts, Baileys messages.update",
+    "updates": [
+      {
+        "key": {
+          "id": "<WA_OUT_ID>"
+        },
+        "update": {
+          "status": 3
+        }
+      }
+    ],
+    "mapping": {
+      "1": "PENDING (ignorado)",
+      "2": "SERVER_ACK → accepted",
+      "3": "DELIVERY_ACK → delivered",
+      "4": "READ → read",
+      "5": "PLAYED → read",
+      "0": "ERROR → failed"
+    }
+  },
+  "requestStages_example": {
+    "_source": "tabla request_stage (request_id, stage, at_ms)",
+    "rows": [
+      {
+        "stage": "admitted",
+        "msFromAdmitted": 0
+      },
+      {
+        "stage": "webhook_accepted",
+        "msFromAdmitted": "<t1>"
+      },
+      {
+        "stage": "callback",
+        "msFromAdmitted": "<t2>"
+      },
+      {
+        "stage": "transport_accepted",
+        "msFromAdmitted": "<t3>"
+      },
+      {
+        "stage": "delivered",
+        "msFromAdmitted": "<t4>"
+      },
+      {
+        "stage": "read",
+        "msFromAdmitted": "<t5>"
+      }
+    ],
+    "_warning": "Tiempos ilustrativos; no mostrar cifras reales inventadas."
+  },
+  "mcp_sendMessage_proactive": {
+    "_source": "src/proactive/schema.ts",
+    "params": {
+      "name": "send_message",
+      "arguments": {
+        "schemaVersion": 1,
+        "destination": "owner",
+        "idempotencyKey": "recordatorio-2026-11-10-a",
+        "text": "Recordatorio que pediste."
+      }
+    }
+  },
+  "mcp_admin_listChats_response_shape": {
+    "_source": "src/admin/access.ts listChats/publicPolicy/publicKnown (sin números ni JID)",
+    "ok": true,
+    "paused": false,
+    "active": 2,
+    "cap": 5,
+    "chats": [
+      {
+        "handle": "<CHAT_HANDLE>",
+        "alias": "owner",
+        "kind": "dm",
+        "mode": "all",
+        "state": "active",
+        "owner": true
+      },
+      {
+        "handle": "<CHAT_HANDLE>",
+        "alias": "Prueba WhatsApp",
+        "kind": "group",
+        "mode": "mention-or-quote",
+        "state": "active",
+        "participants": "<N>"
+      }
+    ],
+    "known": [
+      {
+        "handle": "<CHAT_HANDLE>",
+        "alias": "<NOMBRE>",
+        "kind": "group",
+        "seenAt": "<UNIX_MS>"
+      }
+    ]
+  },
+  "healthz_shape": {
+    "_source": "src/http/server.ts",
+    "ok": true,
+    "version": "0.1.0",
+    "whatsappEnabled": true,
+    "outboundEnabled": true,
+    "brain": "grok-bot",
+    "persistence": "file",
+    "queueDepth": 0,
+    "grokBotVerified": false,
+    "syntheticEnabled": false,
+    "mediaDownload": true,
+    "outboundMedia": true,
+    "metrics": "<contadores>",
+    "proactive": {
+      "enabled": true,
+      "breakerOpen": false,
+      "sentToday": 0,
+      "cap": 10
+    }
+  }
+}
