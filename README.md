@@ -23,7 +23,7 @@ npm run build
 npm run preview
 ```
 
-`npm run build` genera `dist/`. No hay variables de entorno.
+`npm run build` genera `dist/`. No hay variables de entorno, base de datos ni autenticación: es una app estática lista para publicar.
 
 ## Estructura
 
